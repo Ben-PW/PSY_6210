@@ -261,8 +261,9 @@ plot(density(SceneDec$Age), main='')
 plot(density(SceneDec$Consc), main='')
 
 # Check continuous variables for multicollinearity 
-cor(SceneDec$RT, SceneDec$Consc)
-cor(SceneDec$RT, SceneDec$Age)
+cor(SceneDec$EloScore, SceneDec$Consc)
+cor(SceneDec$EloScore, SceneDec$Age)
+cor(SceneDec$Consc, SceneDec$Age)
 
 ###### Build model options
 require(lme4)
@@ -271,17 +272,23 @@ require(lmerTest)
 mem1a <- lmer(data = SceneDec, formula = RT ~ SceneType + (1 + SceneType|Participant_ID))
 mem1b <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + (1 + SceneType|Participant_ID))
 mem1c <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + Consc + (1 + SceneType|Participant_ID))
+mem1d <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + Consc + EloScore + (1 + SceneType|Participant_ID))
 mem2a <- lmer(data = SceneDec, formula = RT ~ SceneType + (1|Participant_ID) + (1|SceneType))
 mem2b <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + (1|Participant_ID) + (1|SceneType))
 mem2c <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + Consc + (1|Participant_ID) + (1|SceneType))
+mem2d <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + Consc + EloScore + (1|Participant_ID) + (1|SceneType))
 # maybe nest SceneType within ppt ID like (1|SceneType/Participant_ID)
 # have look at fixed effects as well
 ### do we need to model this more as crossed random effects? (slide 23 lecture 5)
 
-anova(mem1a, mem1b, mem1c, mem2a, mem2b, mem2c)
-
+anova(mem1a, mem1b, mem1c, mem1d) 
+anova(mem2a, mem2b, mem2c, mem2d)
 summary(mem1, cor = F)
 summary(mem, cor = F)
 
 require(sjPlot)
-plot_model(mem, type='re')
+plot_model(mem2d, type='re')[1]
+
+plot_model(mem1d, type='re', sort.est='sort.all', grid=FALSE, auto.label = TRUE)[1]
+plot_model(mem1d, type='re', sort.est='sort.all', grid=FALSE)[2]
+plot_model(mem1d, type='eff')
