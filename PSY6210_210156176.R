@@ -3,6 +3,11 @@
 library(here)
 load(here("Data", "Assessment_Data.RData"))
 #################################### Question 1
+###### Multivariate normality
+require(MVN)
+test <- mvn(GamingAptitude[,c('ScreenTime','Extraversion','Interest')], 
+            mvnTest = 'royston')
+test$multivariateNormality
 
 ###### Check for multicolinearity 
 
@@ -70,6 +75,26 @@ stats::acf(resid(q1lm5))
 
 
 ################################# Question 2
+
+###### Check assumptions of CFA
+# MVN
+require(MVN)
+test <- mvn(GamingAptitude[,c('ScreenTime','Extraversion','Interest','Task','GlobalMovement','Strategy',
+                              'TaskSwitch','StroopTask','UpdatingTask','Knowledge','TimeSpent')], 
+            mvnTest = 'royston')
+test$multivariateNormality
+
+# UVN
+p1 <- plot(density(GamingAptitude$Strategy), main='')
+p2 <- plot(density(GamingAptitude$Task), main='')
+p3 <- plot(density(GamingAptitude$Character), main='')
+p4 <- plot(density(GamingAptitude$GlobalMovement), main='')
+p5 <- plot(density(GamingAptitude$Knowledge), main='')
+p6 <- plot(density(GamingAptitude$TaskSwitch), main='')
+p7 <- plot(density(GamingAptitude$StroopTask), main='')
+p8 <- plot(density(GamingAptitude$UpdatingTask), main='')
+p9 <- plot(density(GamingAptitude$TimeSpent), main='')
+
 
 ###### Specify 3 factor Confirmatory Factor Analysis model
 ## Model is 3 factor standardised variable scaling
@@ -208,6 +233,11 @@ test <- mvn(GamingAptitude[,c('Strategy','Task','Character','GlobalMovement','Kn
           mvnTest = 'royston')
 test$multivariateNormality
 
+# Check linearity of relationship between observed variables
+plot(GamingAptitude$BreakTime, GamingAptitude$ExploreExploit)
+plot(GamingAptitude$BreakTime, GamingAptitude$EloScore)
+plot(GamingAptitude$ExploreExploit, GamingAptitude$EloScore)
+
 ###### Specify model structure
 q3model <- '
 metacog =~ NA*Strategy + Task + Character + GlobalMovement + Knowledge
@@ -230,6 +260,7 @@ sem1 <- sem(q3model, data = GamingAptitude, meanstructure = T)
 
 summary(sem1,
         fit.measures = T,
+        standardized = T
         )
 
 inspect(sem1, "r2")
@@ -239,6 +270,7 @@ semPlot::semPaths(sem1, what = "std", residuals = F)
 ###### Test for metric invariance
 
 # Configural invariance model
+semconfig <- sem(q3model, data = GamingAptitude, group='Sex')
 
 #Metric invariance model
 semmetric <- sem(q3model, data = GamingAptitude, group = 'Sex', group.equal = 'loadings',
@@ -246,7 +278,7 @@ semmetric <- sem(q3model, data = GamingAptitude, group = 'Sex', group.equal = 'l
 
 #Compare models
 require(semTools)
-summary(compareFit(sem1, semmetric))
+summary(compareFit(semconfig, semmetric))
 #Very little difference, metric invariance in "Sex" assumed to be little-none
 
 
@@ -265,6 +297,11 @@ cor(SceneDec$EloScore, SceneDec$Consc)
 cor(SceneDec$EloScore, SceneDec$Age)
 cor(SceneDec$Consc, SceneDec$Age)
 
+# Linearity of relationship
+plot(SceneDec$RT, SceneDec$Age)
+plot(SceneDec$RT, SceneDec$Consc)
+plot(SceneDec$RT, SceneDec$EloScore)
+
 ###### Build model options
 require(lme4)
 require(lmerTest)
@@ -273,22 +310,41 @@ mem1a <- lmer(data = SceneDec, formula = RT ~ SceneType + (1 + SceneType|Partici
 mem1b <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + (1 + SceneType|Participant_ID))
 mem1c <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + Consc + (1 + SceneType|Participant_ID))
 mem1d <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + Consc + EloScore + (1 + SceneType|Participant_ID))
-mem2a <- lmer(data = SceneDec, formula = RT ~ SceneType + (1|Participant_ID) + (1|SceneType))
-mem2b <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + (1|Participant_ID) + (1|SceneType))
-mem2c <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + Consc + (1|Participant_ID) + (1|SceneType))
-mem2d <- lmer(data = SceneDec, formula = RT ~ SceneType + Age + Consc + EloScore + (1|Participant_ID) + (1|SceneType))
-# maybe nest SceneType within ppt ID like (1|SceneType/Participant_ID)
-# have look at fixed effects as well
-### do we need to model this more as crossed random effects? (slide 23 lecture 5)
+
+# Compare model outcomes
 
 anova(mem1a, mem1b, mem1c, mem1d) 
-anova(mem2a, mem2b, mem2c, mem2d)
-summary(mem1, cor = F)
-summary(mem, cor = F)
+summary(mem1d, cor = F)
 
+# Plot stuff
 require(sjPlot)
-plot_model(mem2d, type='re')[1]
 
 plot_model(mem1d, type='re', sort.est='sort.all', grid=FALSE, auto.label = TRUE)[1]
 plot_model(mem1d, type='re', sort.est='sort.all', grid=FALSE)[2]
 plot_model(mem1d, type='eff')
+
+SceneDec$predicted = predict(mem1d)
+plot(SceneDec$predicted, SceneDec$RT)
+
+###### How does model adjust slope for first participant
+ranef(mem1d)
+fixef(mem1d)
+
+###### Which variables influence variability explained by random adjustments
+# Construct baseline model
+Basecomp <- lmer(data = SceneDec, formula = RT ~ (1 + SceneType|Participant_ID))
+
+# Construct model alternatives for comparison
+STcomp <- lmer(data = SceneDec, formula = RT ~ SceneType + (1 + SceneType|Participant_ID))
+Agecomp <- lmer(data = SceneDec, formula = RT ~ Age + (1 + SceneType|Participant_ID))
+Concomp <- lmer(data = SceneDec, formula = RT ~ Consc + (1 + SceneType|Participant_ID))
+Elocomp <- lmer(data = SceneDec, formula = RT ~ EloScore + (1 + SceneType|Participant_ID))
+
+# Compare models
+require(MuMIn)
+r.squaredGLMM(Basecomp)
+r.squaredGLMM(STcomp)
+r.squaredGLMM(Agecomp)
+r.squaredGLMM(Concomp)
+r.squaredGLMM(Elocomp)
+r.squaredGLMM(mem1d)
